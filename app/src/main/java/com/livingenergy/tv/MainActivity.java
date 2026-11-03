@@ -30,8 +30,9 @@ public class MainActivity extends Activity {
     }catch(Exception e){Toast.makeText(this,"Открой настройки обоев Android TV",Toast.LENGTH_LONG).show();}
   });menu.addView(install);
   Button toggle=new Button(this);toggle.setText("Скрыть меню / показать");toggle.setOnClickListener(v->menu.setVisibility(View.GONE));menu.addView(toggle);
-  FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(-2,-2,android.view.Gravity.BOTTOM|android.view.Gravity.CENTER_HORIZONTAL);
-  root.addView(menu,lp);
+  ScrollView scroll=new ScrollView(this);scroll.addView(menu);scroll.setFillViewport(false);
+  FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(-2,-2,android.view.Gravity.BOTTOM|android.view.Gravity.CENTER_HORIZONTAL);lp.height=(int)(getResources().getDisplayMetrics().heightPixels*.86f);
+  root.addView(scroll,lp);
   Button show=new Button(this);show.setText("⚙");show.setOnClickListener(v->menu.setVisibility(View.VISIBLE));
   FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(-2,-2,android.view.Gravity.TOP|android.view.Gravity.RIGHT);
   root.addView(show,sp);setContentView(root);
