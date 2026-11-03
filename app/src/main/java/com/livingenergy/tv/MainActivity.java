@@ -19,7 +19,7 @@ public class MainActivity extends Activity {
   menu=new LinearLayout(this);menu.setOrientation(LinearLayout.VERTICAL);menu.setPadding(20,12,20,12);menu.setBackgroundColor(0xdd08091a);
   TextView title=new TextView(this);title.setText("LIVING ENERGY 4K  •  Настройки");title.setTextColor(-1);title.setTextSize(18);menu.addView(title);
   addSlider("Скорость", "speed",70,200);addSlider("Высота волн","height",100,250);addSlider("Размер частиц","size",100,250);addSlider("Блеск","shine",100,200);
-  addSlider("Расстояние между частицами","spacing",0,100);
+  addSlider("Расстояние между частицами","spacing",0,100);addSlider("Микроблики","microGlints",100,200);addSlider("Световые волны","lightWaves",100,200);
   Button install=new Button(this);install.setText("Установить как живые обои");install.setOnClickListener(v->{
     try{Intent intent=new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
       intent.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,new android.content.ComponentName(this,CrystalWallpaperService.class));
@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
   FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(-2,-2,android.view.Gravity.TOP|android.view.Gravity.RIGHT);
   root.addView(show,sp);setContentView(root);
  }
- void syncPreview(){android.content.SharedPreferences p=getSharedPreferences("living",MODE_PRIVATE);String js="window.setWallpaperSettings({speed:"+p.getInt("speed",70)+",height:"+p.getInt("height",100)+",size:"+p.getInt("size",100)+",shine:"+p.getInt("shine",100)+",spacing:"+p.getInt("spacing",0)+"})";web.evaluateJavascript(js,null);}
+ void syncPreview(){android.content.SharedPreferences p=getSharedPreferences("living",MODE_PRIVATE);String js="window.setWallpaperSettings({speed:"+p.getInt("speed",70)+",height:"+p.getInt("height",100)+",size:"+p.getInt("size",100)+",shine:"+p.getInt("shine",100)+",spacing:"+p.getInt("spacing",0)+",microGlints:"+p.getInt("microGlints",100)+",lightWaves:"+p.getInt("lightWaves",100)+"})";web.evaluateJavascript(js,null);}
  void addSlider(String name,String key,int def,int max){
   TextView label=new TextView(this);label.setText(name);label.setTextColor(-1);menu.addView(label);
   SeekBar bar=new SeekBar(this);bar.setMax(max);bar.setProgress(getSharedPreferences("living",MODE_PRIVATE).getInt(key,def));
