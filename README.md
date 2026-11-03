@@ -1,0 +1,1 @@
+Living Energy 4K V8 — Android TV fullscreen animated faceted particle waves. GitHub Actions builds debug APK automatically on push. This is an Android TV application, not an Android system wallpaper.
