@@ -12,7 +12,7 @@ public class CrystalWallpaperService extends WallpaperService {
  class CrystalEngine extends Engine {
   HandlerThread thread=new HandlerThread("CrystalGL");
   Handler handler;boolean visible,ready;EGL10 egl;EGLDisplay display;EGLSurface surface;EGLContext context;
-  int program,position,time,aspect,scale;FloatBuffer vertices;long started;
+  int program,position,time,aspect,scale,heightFactor,shine,colorCount,palette;FloatBuffer vertices;long started;
   CrystalEngine(){thread.start();handler=new Handler(thread.getLooper());}
   final Runnable tick=new Runnable(){public void run(){if(!visible)return;try{if(!ready)init();render();}catch(Exception e){Log.e("CrystalGL","render",e);cleanup();}handler.postDelayed(this,33);}};
   public void onVisibilityChanged(boolean v){visible=v;handler.removeCallbacks(tick);if(v)handler.post(tick);}
@@ -31,7 +31,7 @@ public class CrystalWallpaperService extends WallpaperService {
    String html=read();int v=compile(GLES20.GL_VERTEX_SHADER,shaderSource(html,"vs"));int f=compile(GLES20.GL_FRAGMENT_SHADER,shaderSource(html,"fs"));
    program=GLES20.glCreateProgram();GLES20.glAttachShader(program,v);GLES20.glAttachShader(program,f);GLES20.glLinkProgram(program);
    int[] linked=new int[1];GLES20.glGetProgramiv(program,GLES20.GL_LINK_STATUS,linked,0);if(linked[0]==0)throw new RuntimeException(GLES20.glGetProgramInfoLog(program));
-   position=GLES20.glGetAttribLocation(program,"a");time=GLES20.glGetUniformLocation(program,"t");aspect=GLES20.glGetUniformLocation(program,"aspect");scale=GLES20.glGetUniformLocation(program,"scale");
+   position=GLES20.glGetAttribLocation(program,"a");time=GLES20.glGetUniformLocation(program,"t");aspect=GLES20.glGetUniformLocation(program,"aspect");scale=GLES20.glGetUniformLocation(program,"scale");heightFactor=GLES20.glGetUniformLocation(program,"heightFactor");shine=GLES20.glGetUniformLocation(program,"shine");colorCount=GLES20.glGetUniformLocation(program,"colorCount");palette=GLES20.glGetUniformLocation(program,"palette[0]");
    float[] data=new float[235*145*3];int k=0;long seed=193847;
    for(int y=0;y<145;y++)for(int x=0;x<235;x++){
     seed=(seed*1664525+1013904223)&0xffffffffL;float a=seed/4294967296f;
@@ -48,7 +48,7 @@ public class CrystalWallpaperService extends WallpaperService {
    android.content.SharedPreferences prefs=getSharedPreferences("living",MODE_PRIVATE);
    float speed=prefs.getInt("speed",70)/70f,size=prefs.getInt("size",100)/100f;
    GLES20.glUniform1f(time,(System.nanoTime()-started)*.00000000055f*speed);
-   GLES20.glUniform1f(aspect,(float)w/h);GLES20.glUniform1f(scale,Math.min(w/1250f,1.5f)*size);
+   GLES20.glUniform1f(aspect,(float)w/h);GLES20.glUniform1f(scale,Math.min(w/1250f,1.5f)*size);GLES20.glUniform1f(heightFactor,prefs.getInt("height",100)/100f);GLES20.glUniform1f(shine,prefs.getInt("shine",100)/100f);int n=Math.max(1,Math.min(10,prefs.getInt("colorCount",2)));GLES20.glUniform1i(colorCount,n);int[] defaults={0xff174bff,0xff9333ea,0xff00d5ff,0xffff2ba6,0xff00e5a0,0xffffb020,0xffff4938,0xfff5f5ff,0xff74ff30,0xffd61aff};float[] rgb=new float[30];for(int i=0;i<10;i++){int col=prefs.getInt("color"+i,defaults[i]);rgb[i*3]=((col>>16)&255)/255f;rgb[i*3+1]=((col>>8)&255)/255f;rgb[i*3+2]=(col&255)/255f;}GLES20.glUniform3fv(palette,10,rgb,0);
    GLES20.glEnableVertexAttribArray(position);vertices.position(0);GLES20.glVertexAttribPointer(position,3,GLES20.GL_FLOAT,false,0,vertices);
    GLES20.glDrawArrays(GLES20.GL_POINTS,0,235*145);egl.eglSwapBuffers(display,surface);
   }
