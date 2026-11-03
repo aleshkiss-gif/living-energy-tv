@@ -1,67 +1,57 @@
 package com.livingenergy.tv;
 import android.service.wallpaper.WallpaperService;
-import android.view.SurfaceHolder;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.Path;
 import android.os.Handler;
-import android.os.Looper;
-import android.content.SharedPreferences;
-import java.util.Random;
+import android.os.HandlerThread;
+import android.opengl.GLES20;
+import android.view.SurfaceHolder;
+import android.util.Log;
+import java.nio.*;
+import javax.microedition.khronos.egl.*;
 public class CrystalWallpaperService extends WallpaperService {
- @Override public Engine onCreateEngine(){return new CrystalEngine();}
+ public Engine onCreateEngine(){return new CrystalEngine();}
  class CrystalEngine extends Engine {
-  final Handler handler=new Handler(Looper.getMainLooper()); final Paint paint=new Paint(3);
-  final Random rng=new Random(717); final float[] seeds=new float[14000];
-  boolean visible=false; long start=System.currentTimeMillis();
-  CrystalEngine(){for(int i=0;i<seeds.length;i++)seeds[i]=rng.nextFloat();}
-  final Runnable drawTask=new Runnable(){public void run(){drawFrame();}};
-  @Override public void onVisibilityChanged(boolean v){visible=v;handler.removeCallbacks(drawTask);if(v)handler.post(drawTask);}
-  @Override public void onSurfaceDestroyed(SurfaceHolder h){visible=false;handler.removeCallbacks(drawTask);super.onSurfaceDestroyed(h);}
-  void drawFrame(){
-   if(!visible)return;Canvas c=null;
-   try{c=getSurfaceHolder().lockCanvas();if(c!=null)render(c);}
-   catch(Exception ignored){}finally{if(c!=null)getSurfaceHolder().unlockCanvasAndPost(c);}
-   handler.postDelayed(drawTask,33);
-  }
-  void render(Canvas c){
-   int w=c.getWidth(),h=c.getHeight();c.drawColor(0xff000000);
-   SharedPreferences p=getSharedPreferences("living",MODE_PRIVATE);
-   float speed=p.getInt("speed",70)/100f,amp=p.getInt("height",100)/100f;
-   float size=p.getInt("size",100)/100f,shine=p.getInt("shine",100)/100f;
-   float t=(System.currentTimeMillis()-start)*.0003f*speed;
-   int cols=175,rows=80;
-   for(int j=rows-1;j>=0;j--){
-    float depth=(float)j/(rows-1),persp=(float)Math.pow(depth,1.8);
-    float yy=h*(.36f+.64f*persp);
-    float radius=(.65f+4.7f*persp)*size*Math.max(.6f,w/1920f);
-    for(int i=0;i<cols;i++){
-     int id=j*cols+i;float rnd=seeds[id];
-     float x=(i+.18f+.65f*rnd)/cols*w;
-     float z=1f+depth*90f;
-     float world=x/w*28f;
-     float wave=(float)(Math.sin(world*.55+z*.15-t*.8)*.43+
-       Math.sin(-world*.36+z*.23+t*.61)*.37+
-       Math.sin(world*.19-z*.38-t*.48)*.3+
-       Math.pow(Math.max(0,Math.sin(world*.24+z*.16-t*.28)),4)*.9);
-     float y=yy-wave*amp*(5+36*persp);
-     boolean purple=Math.sin(world*.65+z*.33-t*.3)+Math.sin(z*.23-world*.41)>0;
-     float twinkle=(float)Math.pow(Math.max(0,Math.sin(t*2.8+rnd*80+z*.3)),12);
-     int base=purple?0xff6c12bd:0xff083ac5;
-     paint.setColor(base);paint.setStyle(Paint.Style.FILL);
-     float angle=rnd*6.28f;int facets=5+(int)(rnd*3);
-     Path path=new Path();
-     for(int v=0;v<facets;v++){
-       float a=angle+v*6.28318f/facets;
-       float rr=radius*(.75f+.25f*seeds[(id+v*19)%seeds.length]);
-       float vx=x+(float)Math.cos(a)*rr,vy=y+(float)Math.sin(a)*rr;
-       if(v==0)path.moveTo(vx,vy);else path.lineTo(vx,vy);
-     }path.close();c.drawPath(path,paint);
-     paint.setColor(purple?0xffbd4aff:0xff2a9aff);
-     paint.setAlpha((int)Math.min(255,45+170*twinkle*shine));
-     c.drawCircle(x-radius*.22f,y-radius*.24f,Math.max(.4f,radius*.22f),paint);
-    }
+  HandlerThread thread=new HandlerThread("CrystalGL");
+  Handler handler;boolean visible,ready;EGL10 egl;EGLDisplay display;EGLSurface surface;EGLContext context;
+  int program,position,time,aspect,scale;FloatBuffer vertices;long started;
+  CrystalEngine(){thread.start();handler=new Handler(thread.getLooper());}
+  final Runnable tick=new Runnable(){public void run(){if(!visible)return;try{if(!ready)init();render();}catch(Exception e){Log.e("CrystalGL","render",e);cleanup();}handler.postDelayed(this,33);}};
+  public void onVisibilityChanged(boolean v){visible=v;handler.removeCallbacks(tick);if(v)handler.post(tick);}
+  public void onSurfaceDestroyed(SurfaceHolder h){visible=false;handler.removeCallbacks(tick);handler.post(this::cleanup);super.onSurfaceDestroyed(h);}
+  public void onDestroy(){visible=false;handler.removeCallbacks(tick);handler.post(()->{cleanup();thread.quitSafely();});super.onDestroy();}
+  String read()throws Exception{java.io.InputStream in=getAssets().open("index.html");java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();byte[] b=new byte[4096];int n;while((n=in.read(b))>0)out.write(b,0,n);in.close();return out.toString("UTF-8");}
+  String shaderSource(String html,String name){String tag="const "+name+"=`";int i=html.indexOf(tag)+tag.length();if(i<tag.length())throw new RuntimeException("Missing shader");return html.substring(i,html.indexOf('`',i));}
+  int compile(int kind,String src){int s=GLES20.glCreateShader(kind);GLES20.glShaderSource(s,src);GLES20.glCompileShader(s);int[] ok=new int[1];GLES20.glGetShaderiv(s,GLES20.GL_COMPILE_STATUS,ok,0);if(ok[0]==0)throw new RuntimeException(GLES20.glGetShaderInfoLog(s));return s;}
+  void init()throws Exception{
+   egl=(EGL10)EGLContext.getEGL();display=egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);egl.eglInitialize(display,new int[2]);
+   int[] attrs={EGL10.EGL_RED_SIZE,8,EGL10.EGL_GREEN_SIZE,8,EGL10.EGL_BLUE_SIZE,8,EGL10.EGL_DEPTH_SIZE,16,0x3040,4,EGL10.EGL_NONE};
+   EGLConfig[] configs=new EGLConfig[1];int[] count=new int[1];egl.eglChooseConfig(display,attrs,configs,1,count);
+   context=egl.eglCreateContext(display,configs[0],EGL10.EGL_NO_CONTEXT,new int[]{0x3098,2,EGL10.EGL_NONE});
+   surface=egl.eglCreateWindowSurface(display,configs[0],getSurfaceHolder(),null);
+   if(!egl.eglMakeCurrent(display,surface,surface,context))throw new RuntimeException("EGL");
+   String html=read();int v=compile(GLES20.GL_VERTEX_SHADER,shaderSource(html,"vs"));int f=compile(GLES20.GL_FRAGMENT_SHADER,shaderSource(html,"fs"));
+   program=GLES20.glCreateProgram();GLES20.glAttachShader(program,v);GLES20.glAttachShader(program,f);GLES20.glLinkProgram(program);
+   int[] linked=new int[1];GLES20.glGetProgramiv(program,GLES20.GL_LINK_STATUS,linked,0);if(linked[0]==0)throw new RuntimeException(GLES20.glGetProgramInfoLog(program));
+   position=GLES20.glGetAttribLocation(program,"a");time=GLES20.glGetUniformLocation(program,"t");aspect=GLES20.glGetUniformLocation(program,"aspect");scale=GLES20.glGetUniformLocation(program,"scale");
+   float[] data=new float[235*145*3];int k=0;long seed=193847;
+   for(int y=0;y<145;y++)for(int x=0;x<235;x++){
+    seed=(seed*1664525+1013904223)&0xffffffffL;float a=seed/4294967296f;
+    seed=(seed*1664525+1013904223)&0xffffffffL;float b=seed/4294967296f;
+    seed=(seed*1664525+1013904223)&0xffffffffL;float c=seed/4294967296f;
+    data[k++]=(x+.08f+.84f*a)/235f;data[k++]=(y+.08f+.84f*b)/145f;data[k++]=c;
    }
+   vertices=ByteBuffer.allocateDirect(data.length*4).order(ByteOrder.nativeOrder()).asFloatBuffer();vertices.put(data).position(0);
+   GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glDepthFunc(GLES20.GL_LEQUAL);GLES20.glClearColor(0,0,0,1);started=System.nanoTime();ready=true;
   }
+  void render(){
+   int w=getSurfaceHolder().getSurfaceFrame().width(),h=getSurfaceHolder().getSurfaceFrame().height();if(w<1||h<1)return;
+   GLES20.glViewport(0,0,w,h);GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
+   android.content.SharedPreferences prefs=getSharedPreferences("living",MODE_PRIVATE);
+   float speed=prefs.getInt("speed",70)/70f,size=prefs.getInt("size",100)/100f;
+   GLES20.glUniform1f(time,(System.nanoTime()-started)*.00000000055f*speed);
+   GLES20.glUniform1f(aspect,(float)w/h);GLES20.glUniform1f(scale,Math.min(w/1250f,1.5f)*size);
+   GLES20.glEnableVertexAttribArray(position);vertices.position(0);GLES20.glVertexAttribPointer(position,3,GLES20.GL_FLOAT,false,0,vertices);
+   GLES20.glDrawArrays(GLES20.GL_POINTS,0,235*145);egl.eglSwapBuffers(display,surface);
+  }
+  void cleanup(){ready=false;if(egl==null)return;try{egl.eglMakeCurrent(display,EGL10.EGL_NO_SURFACE,EGL10.EGL_NO_SURFACE,EGL10.EGL_NO_CONTEXT);if(surface!=null)egl.eglDestroySurface(display,surface);if(context!=null)egl.eglDestroyContext(display,context);egl.eglTerminate(display);}catch(Exception e){}egl=null;}
  }
 }
