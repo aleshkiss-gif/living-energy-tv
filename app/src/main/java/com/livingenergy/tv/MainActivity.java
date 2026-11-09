@@ -33,8 +33,16 @@ public class MainActivity extends Activity {
   root.addView(scroll,lp);
   Button show=new Button(this);show.setText("⚙");show.setOnClickListener(v->menu.setVisibility(View.VISIBLE));
   FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(-2,-2,android.view.Gravity.TOP|android.view.Gravity.RIGHT);
-  root.addView(show,sp);setContentView(root);
+  root.addView(show,sp);setContentView(root);addUpdateControls();UpdateManager.schedule(this);UpdateManager.check(this,false);
  }
+ void addUpdateControls(){
+  TextView heading=new TextView(this);heading.setText("ОБНОВЛЕНИЯ • версия "+getVersionName());heading.setTextColor(0xff88eeff);menu.addView(heading);
+  Switch automatic=new Switch(this);automatic.setText("Автоматически проверять и скачивать обновления");automatic.setTextColor(-1);automatic.setChecked(UpdateManager.prefs(this).getBoolean("automatic",true));automatic.setOnCheckedChangeListener((v,on)->{UpdateManager.prefs(this).edit().putBoolean("automatic",on).apply();UpdateManager.schedule(this);});menu.addView(automatic);
+  TextView info=new TextView(this);info.setText("Проверка раз в сутки и при открытии приложения. Установку подтверждаете вы.");info.setTextColor(0xffbbbbcc);menu.addView(info);
+  Button check=new Button(this);check.setText("Проверить обновления");check.setOnClickListener(v->UpdateManager.check(this,true));menu.addView(check);
+  Button installUpdate=new Button(this);installUpdate.setText("Установить скачанное обновление");installUpdate.setOnClickListener(v->{if(UpdateManager.ready(this))UpdateManager.install(this);else Toast.makeText(this,"Сначала проверьте обновления",Toast.LENGTH_SHORT).show();});menu.addView(installUpdate);
+ }
+ String getVersionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "20";}}
  void syncPreview(){android.content.SharedPreferences p=getSharedPreferences("living",MODE_PRIVATE);String js="window.setWallpaperSettings({palette:"+p.getInt("palette",0)+",colors:"+ColorPalette.json(p)+",speed:"+p.getInt("speed",70)+",height:"+p.getInt("height",100)+",size:"+p.getInt("size",100)+",shine:"+p.getInt("shine",100)+",spacing:"+p.getInt("spacing",0)+",microGlints:"+p.getInt("microGlints",100)+",lightWaves:"+p.getInt("lightWaves",100)+",depthLight:"+p.getInt("depthLight",100)+",quality:"+p.getInt("quality",1)+",horizonGlow:"+p.getInt("horizonGlow",100)+",rayIntensity:"+p.getInt("rayIntensity",100)+",raySpeed:"+p.getInt("raySpeed",100)+"})";web.evaluateJavascript(js,null);}
  void addPaletteControls(){
   final android.content.SharedPreferences prefs=getSharedPreferences("living",MODE_PRIVATE);

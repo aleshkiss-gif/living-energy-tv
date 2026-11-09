@@ -1,8 +1,16 @@
 name: Build Android TV APK
-on: [workflow_dispatch, push]
+on:
+  workflow_dispatch:
+  push:
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      HAS_SIGNING: ${{ secrets.LIVING_ENERGY_SIGNING != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -12,8 +20,48 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - run: gradle :app:assembleDebug --no-daemon
-      - uses: actions/upload-artifact@v4
+      - name: Prepare permanent signing
+        if: env.HAS_SIGNING == 'true'
+        env:
+          SIGNING_BUNDLE: ${{ secrets.LIVING_ENERGY_SIGNING }}
+        run: python3 scripts/prepare_signing.py
+      - name: Build and lint
+        run: gradle :app:assembleDebug :app:lintDebug --no-daemon
+      - name: Build signed release
+        if: env.HAS_SIGNING == 'true'
+        run: gradle :app:assembleRelease --no-daemon
+      - name: Prepare signed APK and update manifest
+        if: env.HAS_SIGNING == 'true'
+        id: release
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/LivingEnergy.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose dist/LivingEnergy.apk
+          python3 scripts/release_metadata.py
+      - name: Upload signed build
+        if: env.HAS_SIGNING == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          name: LivingEnergyTV-V8-debug-apk
+          name: LivingEnergy-Signed-APK
+          path: dist/*
+      - name: Upload test build (signing not configured)
+        if: env.HAS_SIGNING != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: LivingEnergy-TEST-ONLY-debug-APK
           path: app/build/outputs/apk/debug/*.apk
+      - name: Publish stable update
+        if: env.HAS_SIGNING == 'true' && (github.ref_name == 'v20-auto-updates' || github.ref_name == 'main')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release already exists; increment versionCode for a new update."
+          else
+            gh release create "$TAG" dist/LivingEnergy.apk dist/update.json --target "$GITHUB_SHA" --title "Living Energy $VERSION" --notes "Иконка, цветовые палитры и автоматическая загрузка обновлений. Установку подтверждает пользователь." --latest
+          fi
+      - name: Remove signing material
+        if: always()
+        run: rm -f release.jks signing.properties

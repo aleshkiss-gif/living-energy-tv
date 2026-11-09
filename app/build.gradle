@@ -1,4 +1,20 @@
 plugins { id 'com.android.application' }
-android { namespace 'com.livingenergy.tv'; compileSdk 35
- defaultConfig { applicationId 'com.livingenergy.tv'; minSdk 26; targetSdk 28; versionCode 19; versionName '19.0' } }
-
+def signingFile = rootProject.file('signing.properties')
+def signingProps = new Properties()
+if (signingFile.exists()) { signingFile.withInputStream { signingProps.load(it) } }
+android {
+ namespace 'com.livingenergy.tv'
+ compileSdk 35
+ defaultConfig { applicationId 'com.livingenergy.tv'; minSdk 26; targetSdk 28; versionCode 20; versionName '20.0' }
+ signingConfigs {
+  stable {
+   if (signingFile.exists()) {
+    storeFile rootProject.file(signingProps['storeFile'])
+    storePassword signingProps['storePassword']
+    keyAlias signingProps['keyAlias']
+    keyPassword signingProps['keyPassword']
+   }
+  }
+ }
+ buildTypes { release { if (signingFile.exists()) { signingConfig signingConfigs.stable }; minifyEnabled false } }
+}
