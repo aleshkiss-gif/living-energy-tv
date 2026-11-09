@@ -26,7 +26,11 @@ jobs:
           SIGNING_BUNDLE: ${{ secrets.LIVING_ENERGY_SIGNING }}
         run: python3 scripts/prepare_signing.py
       - name: Build and lint
-        run: gradle :app:assembleDebug :app:lintDebug --no-daemon
+        run: |
+          if ! gradle :app:assembleDebug :app:lintDebug --no-daemon; then
+            cat app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt 2>/dev/null || true
+            exit 1
+          fi
       - name: Build signed release
         if: env.HAS_SIGNING == 'true'
         run: gradle :app:assembleRelease --no-daemon
