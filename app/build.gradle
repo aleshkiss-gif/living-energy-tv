@@ -1,3 +1,4 @@
 plugins { id 'com.android.application' }
 android { namespace 'com.livingenergy.tv'; compileSdk 35
- defaultConfig { applicationId 'com.livingenergy.tv'; minSdk 26; targetSdk 28; versionCode 18; versionName '18.0' } }
+ defaultConfig { applicationId 'com.livingenergy.tv'; minSdk 26; targetSdk 28; versionCode 19; versionName '19.0' } }
+

@@ -49,9 +49,15 @@ public class CrystalWallpaperService extends WallpaperService {
    GLES20.glUniform1f(locations[1],p.getInt("wallpaperSaturation",100)/100f);
    GLES20.glUniform1f(locations[2],p.getInt("wallpaperGamma",100)/100f);
   }
+  void applyPalette(int target){
+   android.content.SharedPreferences p=getSharedPreferences("living",MODE_PRIVATE);int[] colors=ColorPalette.colors(p);
+   GLES20.glUniform1f(GLES20.glGetUniformLocation(target,"paletteMode"),p.getInt("palette",0));GLES20.glUniform1f(GLES20.glGetUniformLocation(target,"paletteCount"),colors.length);
+   GLES20.glUniform1f(GLES20.glGetUniformLocation(target,"colorTime"),(System.nanoTime()-started)*.00000000055f*p.getInt("raySpeed",100)/100f);
+   for(int i=0;i<7;i++){int c=colors[i%colors.length];GLES20.glUniform3f(GLES20.glGetUniformLocation(target,"palette"+i),((c>>16)&255)/255f,((c>>8)&255)/255f,(c&255)/255f);}
+  }
   void render(){
    int w=getSurfaceHolder().getSurfaceFrame().width(),h=getSurfaceHolder().getSurfaceFrame().height();if(w<1||h<1)return;
-   GLES20.glViewport(0,0,w,h);GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glDisable(GLES20.GL_DEPTH_TEST);GLES20.glUseProgram(bgProgram);applyCorrection(correctionBg);GLES20.glEnableVertexAttribArray(bgPos);bgVertices.position(0);GLES20.glVertexAttribPointer(bgPos,2,GLES20.GL_FLOAT,false,0,bgVertices);GLES20.glUniform1f(bgTime,(System.nanoTime()-started)*.00000000055f);GLES20.glUniform1f(bgGlow,getSharedPreferences("living",MODE_PRIVATE).getInt("horizonGlow",100)/100f);GLES20.glUniform1f(bgRays,getSharedPreferences("living",MODE_PRIVATE).getInt("rayIntensity",100)/100f);GLES20.glUniform1f(bgSpeed,getSharedPreferences("living",MODE_PRIVATE).getInt("raySpeed",100)/100f);GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,3);GLES20.glDisableVertexAttribArray(bgPos);GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glUseProgram(program);applyCorrection(correctionMain);
+   GLES20.glViewport(0,0,w,h);GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glDisable(GLES20.GL_DEPTH_TEST);GLES20.glUseProgram(bgProgram);applyCorrection(correctionBg);applyPalette(bgProgram);GLES20.glEnableVertexAttribArray(bgPos);bgVertices.position(0);GLES20.glVertexAttribPointer(bgPos,2,GLES20.GL_FLOAT,false,0,bgVertices);GLES20.glUniform1f(bgTime,(System.nanoTime()-started)*.00000000055f);GLES20.glUniform1f(bgGlow,getSharedPreferences("living",MODE_PRIVATE).getInt("horizonGlow",100)/100f);GLES20.glUniform1f(bgRays,getSharedPreferences("living",MODE_PRIVATE).getInt("rayIntensity",100)/100f);GLES20.glUniform1f(bgSpeed,getSharedPreferences("living",MODE_PRIVATE).getInt("raySpeed",100)/100f);GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,3);GLES20.glDisableVertexAttribArray(bgPos);GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glUseProgram(program);applyCorrection(correctionMain);applyPalette(program);
    android.content.SharedPreferences prefs=getSharedPreferences("living",MODE_PRIVATE);
    float speed=prefs.getInt("speed",70)/70f,size=prefs.getInt("size",100)/100f;
    GLES20.glUniform1f(time,(System.nanoTime()-started)*.00000000055f*speed);
